@@ -19,12 +19,12 @@ jobs:
           sudo xcode-select -s "$LATEST/Contents/Developer"
           xcodebuild -version
 
-      - name: Cài CocoaPods nếu thiếu Pods
+      - name: Cài CocoaPods (luôn chạy lại để áp dụng link tĩnh)
         working-directory: pip_swift
         run: |
-          if [ ! -f Pods/Manifest.lock ] || ! diff -q Podfile.lock Pods/Manifest.lock >/dev/null; then
-            pod install
-          fi
+          pod --version
+          rm -rf Pods
+          pod install --repo-update
 
       - name: Cấp quyền chạy cho script của Pods
         run: find pip_swift/Pods -name '*.sh' -exec chmod +x {} +
