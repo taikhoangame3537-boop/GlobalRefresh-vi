@@ -1,7 +1,18 @@
-source 'https://github.com/CocoaPods/Specs.git'
+source 'https://cdn.cocoapods.org/'
 platform :ios, '15.0'
-use_frameworks!
+
+# Link tĩnh: tránh bước "[CP] Embed Pods Frameworks" bị lỗi rsync
+# (UninstalledProducts/.../SnapKit.framework: No such file) khi `xcodebuild archive`.
+use_frameworks! :linkage => :static
 
 target 'pip_swift' do
     pod 'SnapKit', '~> 5.0.0'
+end
+
+post_install do |installer|
+  installer.pods_project.targets.each do |t|
+    t.build_configurations.each do |c|
+      c.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+    end
+  end
 end
