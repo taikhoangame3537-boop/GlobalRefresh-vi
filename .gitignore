@@ -1,0 +1,25 @@
+.DS_Store
+
+# Xcode local state
+*.xcuserstate
+*.xcbkptlist
+xcuserdata/
+DerivedData/
+
+# Build outputs
+build/
+build_outputs/
+*.ipa
+*.xcarchive
+
+# Local signing material
+*.mobileprovision
+*.p12
+*.cer
+
+# Private Codex notes, keep them in the private notes repository only
+CODEX_PROJECT_NOTES.md
+CODEX_CONVERSATION_LOG.md
+CHANGE_RECORD.md
+VERSION_NOTES.md
+GlobalRefresh-PiP-PrivateNotes/

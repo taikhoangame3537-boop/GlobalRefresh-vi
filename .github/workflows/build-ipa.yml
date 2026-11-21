@@ -1,0 +1,80 @@
+name: Build IPA (không ký)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master, main]
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Chọn Xcode mới nhất
+        run: |
+          LATEST=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -n 1)
+          echo "Dùng: $LATEST"
+          sudo xcode-select -s "$LATEST/Contents/Developer"
+          xcodebuild -version
+
+      - name: Cài CocoaPods nếu thiếu Pods
+        working-directory: pip_swift
+        run: |
+          if [ ! -f Pods/Manifest.lock ] || ! diff -q Podfile.lock Pods/Manifest.lock >/dev/null; then
+            pod install
+          fi
+
+      - name: Cấp quyền chạy cho script của Pods
+        run: find pip_swift/Pods -name '*.sh' -exec chmod +x {} +
+
+      - name: Archive (không ký)
+        run: |
+          set -eo pipefail
+          # MetricKit kênh mới chỉ có trong SDK iOS 27 (Xcode 27+)
+          XCODE_MAJOR=$(xcodebuild -version | head -n 1 | sed -E 's/Xcode ([0-9]+).*/\1/')
+          EXTRA_CONDITIONS=""
+          if [ "$XCODE_MAJOR" -ge 27 ]; then EXTRA_CONDITIONS="IOS27_METRICKIT"; fi
+          echo "Xcode $XCODE_MAJOR, điều kiện bổ sung: '$EXTRA_CONDITIONS'"
+          xcodebuild archive \
+            -workspace pip_swift/pip_swift.xcworkspace \
+            -scheme pip_swift \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/pip.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            SWIFT_ACTIVE_COMPILATION_CONDITIONS="\$(inherited) $EXTRA_CONDITIONS" \
+            > "$RUNNER_TEMP/build.log" 2>&1 || {
+              echo "=== CÁC LỖI ==="
+              grep -E "error:" "$RUNNER_TEMP/build.log" | sort -u | head -n 60
+              exit 1
+            }
+          tail -n 5 "$RUNNER_TEMP/build.log"
+
+      - name: Đóng gói IPA
+        run: |
+          APP=$(find "$RUNNER_TEMP/pip.xcarchive/Products/Applications" -maxdepth 1 -name '*.app' | head -n 1)
+          echo "App: $APP"
+          mkdir -p Payload out
+          cp -R "$APP" Payload/
+          zip -q -r out/GlobalRefresh-vi.ipa Payload
+          ls -la out
+
+      - name: Tải IPA lên
+        uses: actions/upload-artifact@v4
+        with:
+          name: GlobalRefresh-vi-ipa
+          path: out/GlobalRefresh-vi.ipa
+
+      - name: Tải log build nếu lỗi
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: ${{ runner.temp }}/build.log
